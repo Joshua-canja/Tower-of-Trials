@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Scanner;
 
 public class Shop {
+
     private final ArrayList<ShopItem> stock = new ArrayList<>();
 
     public Shop() {
@@ -23,8 +24,12 @@ public class Shop {
             } catch (Exception e) {
                 continue;
             }
-            if (sel == stock.size() + 1) break;
-            if (sel < 1 || sel > stock.size()) continue;
+            if (sel == stock.size() + 1) {
+                break;
+            }
+            if (sel < 1 || sel > stock.size()) {
+                continue;
+            }
             ShopItem item = stock.get(sel - 1);
             System.out.print("How many would you like to buy? ");
             int qty;

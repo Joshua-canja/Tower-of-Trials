@@ -1,64 +1,98 @@
 package com.mycompany.toweroftrial;
 
-import java.util.Stack;
-import java.util.ArrayList;
 import java.io.*;
-import java.util.HashMap;
+import java.util.*;
 
 public class SaveData {
-    private static final String SAVE_FILE = "savegame.dat";
-    Stack<Player> saves = new Stack<>();
 
-    public void save(Player p) {
-        Player copy = clonePlayer(p);
-        saves.push(copy);
-        System.out.println("Game Saved!");
-        writeToFile(copy); // Save to disk
-    }
-    public Player load() {
-        Player loaded = readFromFile();
-        if (loaded != null) {
-            System.out.println("Game Loaded!");
-            return loaded;
+    private static final String SAVE_FOLDER = "saves";
+
+    public SaveData() {
+        File folder = new File(SAVE_FOLDER);
+        if (!folder.exists()) {
+            folder.mkdir();
         }
-        // Fallback to stack (in-memory)
-        if (saves.isEmpty()) {
-            System.out.println("No saved data!");
+    }
+
+    // List all save files by name (without extension)
+    public List<String> listSaves() {
+        File folder = new File(SAVE_FOLDER);
+        String[] files = folder.list((dir, name) -> name.endsWith(".sav"));
+        List<String> saveNames = new ArrayList<>();
+        if (files != null) {
+            for (String f : files) {
+                saveNames.add(f.substring(0, f.length() - 4));
+            }
+        }
+        return saveNames;
+    }
+
+    // Save file under a name (if you want to support multiple saves)
+    public void save(Player player) {
+        try {
+            System.out.print("Enter a name for your save: ");
+            Scanner in = new Scanner(System.in);
+            String name = in.nextLine().trim();
+            if (name.isEmpty()) {
+                name = "save";
+            }
+            FileOutputStream fileOut = new FileOutputStream(SAVE_FOLDER + "/" + name + ".sav");
+            ObjectOutputStream out = new ObjectOutputStream(fileOut);
+            out.writeObject(player);
+            out.close();
+            fileOut.close();
+            System.out.println("Game saved as '" + name + "'.");
+        } catch (IOException i) {
+            i.printStackTrace();
+            System.out.println("Error saving the game.");
+        }
+    }
+
+    // Load by save name
+    public Player loadByName(String name) {
+        try {
+            FileInputStream fileIn = new FileInputStream(SAVE_FOLDER + "/" + name + ".sav");
+            ObjectInputStream in = new ObjectInputStream(fileIn);
+            Player p = (Player) in.readObject();
+            in.close();
+            fileIn.close();
+            return p;
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("Error loading save '" + name + "'.");
             return null;
         }
-        System.out.println("Game Loaded (in-memory)!");
-        return clonePlayer(saves.peek());
-    }
-    private Player clonePlayer(Player p) {
-        Player cp = new Player(p.name, p.playerClass);
-        cp.level = p.level; cp.exp = p.exp; cp.expToNext = p.expToNext;
-        cp.hp = p.hp; cp.maxHp = p.maxHp; cp.mp = p.mp; cp.maxMp = p.maxMp;
-        cp.gold = p.gold;
-        cp.items = new HashMap<>(p.items);
-        cp.skills = new ArrayList<>(p.skills);
-        cp.equippedItem = p.equippedItem;
-        return cp;
     }
 
-    private void writeToFile(Player p) {
-        try (FileOutputStream fos = new FileOutputStream(SAVE_FILE);
-             ObjectOutputStream oos = new ObjectOutputStream(fos)) {
-            oos.writeObject(p);
-        } catch (Exception e) {
-            System.out.println("Failed to save: " + e.getMessage());
+    // The old load() method can be adapted to call loadByName()
+    public Player load(Scanner in) {
+        List<String> saves = listSaves();
+        if (saves.isEmpty()) {
+            return null;
         }
+        System.out.println("Available saves:");
+        for (int i = 0; i < saves.size(); i++) {
+            System.out.println((i + 1) + ". " + saves.get(i));
+        }
+        System.out.print("Choose a save to load: ");
+        String input = in.nextLine().trim();
+        int idx;
+        try {
+            idx = Integer.parseInt(input) - 1;
+        } catch (Exception e) {
+            return null;
+        }
+        if (idx < 0 || idx >= saves.size()) {
+            return null;
+        }
+        return loadByName(saves.get(idx));
     }
 
-    private Player readFromFile() {
-        try (FileInputStream fis = new FileInputStream(SAVE_FILE);
-             ObjectInputStream ois = new ObjectInputStream(fis)) {
-            Object obj = ois.readObject();
-            if (obj instanceof Player) {
-                return (Player) obj;
-            }
-        } catch (Exception e) {
-            // System.out.println("No saved file found.");
+    // Delete a save by name
+    public boolean deleteSave(String name) {
+        File file = new File(SAVE_FOLDER + "/" + name + ".sav");
+        if (file.exists()) {
+            return file.delete();
         }
-        return null;
+        return false;
     }
 }

@@ -1,12 +1,12 @@
 package com.mycompany.toweroftrial;
 
-
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.HashMap;
 import java.util.Scanner;
 
 public class Tower {
+
     private final HashMap<Integer, Queue<Monster>> floors = new HashMap<>();
     private final HashMap<Integer, Queue<Monster>> floorTemplates = new HashMap<>();
     private static final String[] monsterNames = {"Goblin", "Wolf", "Skeleton", "Orc", "Demon"};
@@ -38,52 +38,54 @@ public class Tower {
     }
 
     public void climb(Player player, Scanner in) {
-    int startFloor = chooseStartingFloor(in);
-    for (int f = startFloor; f <= 5; f++) {
-        if (floors.get(f).isEmpty()) {
-            floors.put(f, cloneFloor(floorTemplates.get(f)));
-        }
-        System.out.println("Entering Floor " + f + "...");
-        Queue<Monster> floor = floors.get(f);
-        boolean floorCleared = true;
-        while (!floor.isEmpty()) {
-            Monster m = floor.peek();
-            Battle battle = new Battle(player, m, in);
-            boolean result = battle.run();
-            if (!result) {
-                System.out.println("You have fallen or fled... Returning to main menu.");
-                player.hp = player.maxHp;
-                player.mp = player.maxMp;
-                floorCleared = false;
-                break;
+        int startFloor = chooseStartingFloor(in);
+        for (int f = startFloor; f <= 5; f++) {
+            if (floors.get(f).isEmpty()) {
+                floors.put(f, cloneFloor(floorTemplates.get(f)));
             }
-            floor.poll();
-        }
-        if (floorCleared) {
-            System.out.println("You cleared Floor " + f + "!");
-            if (f > highestClearedFloor) highestClearedFloor = f;
-
-            // Prompt: Proceed or return
-            if (f < 5) {
-                System.out.println("What would you like to do?");
-                System.out.println("1. Proceed to next floor");
-                System.out.println("2. Return to safe zone");
-                String input = in.nextLine().trim();
-                if (input.equals("2")) {
-                    System.out.println("Returning to safe zone...");
+            System.out.println("Entering Floor " + f + "...");
+            Queue<Monster> floor = floors.get(f);
+            boolean floorCleared = true;
+            while (!floor.isEmpty()) {
+                Monster m = floor.peek();
+                Battle battle = new Battle(player, m, in);
+                boolean result = battle.run();
+                if (!result) {
+                    System.out.println("You have fallen or fled... Returning to main menu.");
                     player.hp = player.maxHp;
                     player.mp = player.maxMp;
+                    floorCleared = false;
                     break;
                 }
+                floor.poll();
             }
-        } else {
-            break;
+            if (floorCleared) {
+                System.out.println("You cleared Floor " + f + "!");
+                if (f > highestClearedFloor) {
+                    highestClearedFloor = f;
+                }
+
+                // Prompt: Proceed or return
+                if (f < 5) {
+                    System.out.println("What would you like to do?");
+                    System.out.println("1. Proceed to next floor");
+                    System.out.println("2. Return to safe zone");
+                    String input = in.nextLine().trim();
+                    if (input.equals("2")) {
+                        System.out.println("Returning to safe zone...");
+                        player.hp = player.maxHp;
+                        player.mp = player.maxMp;
+                        break;
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+        if (highestClearedFloor == 5) {
+            System.out.println("Congratulations! You cleared the Tower!");
         }
     }
-    if (highestClearedFloor == 5) {
-        System.out.println("Congratulations! You cleared the Tower!");
-    }
-}
 
     private int chooseStartingFloor(Scanner in) {
         if (highestClearedFloor == 0) {
@@ -110,6 +112,7 @@ public class Tower {
     public int getHighestClearedFloor() {
         return highestClearedFloor;
     }
+
     public void setHighestClearedFloor(int val) {
         highestClearedFloor = val;
     }

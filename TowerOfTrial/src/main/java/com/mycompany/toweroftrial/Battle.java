@@ -1,14 +1,12 @@
 package com.mycompany.toweroftrial;
 
-
 import java.util.Scanner;
-import java.util.Random;
 
 public class Battle {
-    private final Player player;
-    private final Monster monster;
-    private final Scanner in;
-    private final Random rand = new Random();
+
+    private Player player;
+    private Monster monster;
+    private Scanner in;
 
     public Battle(Player player, Monster monster, Scanner in) {
         this.player = player;
@@ -17,187 +15,227 @@ public class Battle {
     }
 
     public boolean run() {
-    UI.printBattleStart(player, monster);
-    if (monster.isBoss && !monster.passiveSkills.isEmpty()) {
-        System.out.print("Boss Passive Skills:\n" + monster.getPassiveDesc());
-    }
-    while (monster.hp > 0 && player.hp > 0) {
-        UI.battleOptions();
-        String act = in.nextLine().trim();
-        boolean playerTurnConsumed = false;
-
-        if (act.equals("1")) { // Normal Attack
-            int dmg = 25 + player.level * 3;
-            dmg = monster.applyPassive(dmg);
-            monster.hp -= dmg;
-            if (monster.hp < 0) monster.hp = 0;
-            System.out.println("You attack the " + monster.name + " and dealt " + dmg + " damage!");
-            playerTurnConsumed = true;
-        } else if (act.equals("2")) { // Inventory
-            if (player.items.isEmpty()) {
-                System.out.println("No items!");
-                continue;
+        while (player.hp > 0 && monster.hp > 0) {
+            // --- Process status effects ---
+            processPlayerStatusEffects();
+            if (player.hp <= 0) {
+                break;
             }
-            UI.printInventory(player.items);
-            System.out.println("Use which item? (0 to cancel)");
-            int idx;
-            try { idx = Integer.parseInt(in.nextLine().trim()) - 1; } catch (Exception e) { continue; }
-            if (idx < 0) continue;
-            if (!player.useItem(idx)) continue;
-            continue;
-        } else if (act.equals("3")) { // Skills
-            UI.printSkills(player.skills);
-            System.out.println("Use which skill? (0 to cancel)");
-            int sidx;
-            try { sidx = Integer.parseInt(in.nextLine().trim()) - 1; } catch (Exception e) { continue; }
-            if (sidx < 0 || sidx >= player.skills.size()) continue;
-            Skill skill = player.skills.get(sidx);
-            int cost = skill.manaCost;
-            if (player.mp < cost) {
-                System.out.println("Not enough MP!");
-                continue;
+            processMonsterStatusEffects();
+            if (monster.hp <= 0) {
+                break;
             }
-            // Skill logic:
-            int dmg = 0;
-            if (skill.name.equals("Power Strike") || skill.name.equals("Backstab") || skill.name.equals("Fireball") || skill.name.equals("Piercing Arrow")) {
-                dmg = 40 + player.level * 4;
-                dmg = monster.applyPassive(dmg);
-                monster.hp -= dmg;
-                player.mp -= cost;
-                System.out.println("You used " + skill.name + " and dealt " + dmg + " damage!");
-            } else if (skill.name.equals("Shield Bash")) { // Warrior 2nd
-                dmg = 30 + player.level * 2;
-                dmg = monster.applyPassive(dmg);
-                monster.hp -= dmg;
-                player.mp -= cost;
-                System.out.println("You used Shield Bash and dealt " + dmg + " damage! (Enemy stunned: Next turn, boss/monster skips attack - not implemented)");
-            } else if (skill.name.equals("Poison Blade")) { // Assassin 2nd
-                dmg = 20 + player.level * 2;
-                dmg = monster.applyPassive(dmg);
-                monster.hp -= dmg;
-                player.mp -= cost;
-                System.out.println("You used Poison Blade and dealt " + dmg + " damage! (Enemy poisoned: loses 5 HP per turn - not implemented)");
-            } else if (skill.name.equals("Ice Spike")) { // Mage 2nd
-                dmg = 24 + player.level * 2;
-                dmg = monster.applyPassive(dmg);
-                monster.hp -= dmg;
-                player.mp -= cost;
-                System.out.println("You used Ice Spike and dealt " + dmg + " damage! (Enemy slowed: less attack next turn - not implemented)");
-            } else if (skill.name.equals("Double Shot")) { // Archer 2nd
-                int base = 25 + player.level * 3;
-                int singleDmg = (int)(base * 0.8);
-                singleDmg = monster.applyPassive(singleDmg);
-                monster.hp -= singleDmg;
-                System.out.println("You used Double Shot! First hit: " + singleDmg + " damage!");
-                if (monster.hp <= 0) { player.mp -= cost; break; }
-                // Second hit
-                monster.hp -= singleDmg;
-                player.mp -= cost;
-                System.out.println("Second hit: " + singleDmg + " damage!");
-            }
-            if (monster.hp < 0) monster.hp = 0;
-            playerTurnConsumed = true;
-        } else if (act.equals("4")) {
-            System.out.println("You fled from battle!");
-            return false;
-        }
 
-        if (monster.hp <= 0) break;
-
-        // Monster's turn
-        if (playerTurnConsumed) {
-            Skill mSkill = monster.chooseSkill();
-            if (mSkill == null) {
-                int mobAtk = monster.attack;
-                player.hp -= mobAtk;
-                if (player.hp < 0) player.hp = 0;
-                System.out.println("The " + monster.name + " attacks you and deals " + mobAtk + " damage!");
-            } else {
-                monster.mp -= mSkill.manaCost;
-                if (monster.isBoss) {
-                    if (mSkill.name.equals("Roar")) {
-                        System.out.println("Boss uses " + mSkill.name + "! Your attack is reduced for 2 turns! (No actual stat change, demonstration only)");
-                    } else if (mSkill.name.equals("Mega Slam")) {
-                        int dmg2 = monster.attack + 20;
-                        player.hp -= dmg2;
-                        if (player.hp < 0) player.hp = 0;
-                        System.out.println("Boss uses " + mSkill.name + "! It deals " + dmg2 + " damage!");
-                    }
+            // --- Player Turn ---
+            if (player.hp > 0) {
+                if (player.stunCounter > 0) {
+                    System.out.println("You are stunned and cannot act this turn!");
                 } else {
-                    int dmg2 = monster.attack + 5;
-                    player.hp -= dmg2;
-                    if (player.hp < 0) player.hp = 0;
-                    System.out.println("The " + monster.name + " uses " + mSkill.name + " and deals " + dmg2 + " damage!");
+                    UI.printBattleStatus(player, monster);
+                    UI.battleOptions();
+                    String input = in.nextLine().trim();
+                    switch (input) {
+                        case "1":
+                            attackMonster();
+                            break;
+                        case "2":
+                            player.showInventory();
+                            break;
+                        case "3":
+                            usePlayerSkill();
+                            break;
+                        case "4":
+                            System.out.println("You fled!");
+                            player.restoreStats();
+                            return false;
+                        default:
+                            System.out.println("Invalid input.");
+                            break;
+                    }
                 }
             }
-            UI.printBattleStatus(player, monster);
-        }
-    }
-    if (player.hp > 0) {
-        System.out.println("You have slain the " + monster.name + "!");
-        System.out.println("You gained " + monster.expReward + " Exp and " + monster.goldReward + " Gold!\n");
-        player.gainExp(monster.expReward);
-        player.addGold(monster.goldReward);
-        return true;
-    }
-    return false;
-}
 
-    public void runTutorial() {
-        System.out.println("Name: " + player.name + "\tLvl." + player.level + "\t\tMonster: " + monster.name);
-        System.out.println("HP: " + player.hp + "/" + player.maxHp + " MP: " + player.mp + "/" + player.maxMp +
-                           "\tExp:" + player.exp + "/" + player.expToNext +
-                           "\tHP: " + monster.hp + "/" + monster.maxHp + " MP: " + monster.mp + "/" + monster.maxMp);
-        while (monster.hp > 0 && player.hp > 0) {
-            UI.battleOptions();
-            String act = in.nextLine().trim();
-
-            if (act.equals("1")) {
-                int dmg = 25;
-                dmg = monster.applyPassive(dmg);
-                monster.hp -= dmg;
-                if (monster.hp < 0) monster.hp = 0;
-                System.out.println("You attack the goblin and dealt " + dmg + " damage!");
-            } else if (act.equals("2")) {
-                System.out.println("No items!");
-                continue;
-            } else if (act.equals("3")) {
-                UI.printSkills(player.skills);
-                System.out.println("Use which skill? (0 to cancel)");
-                int sidx;
-                try {
-                    sidx = Integer.parseInt(in.nextLine().trim()) - 1;
-                } catch (Exception e) {
-                    continue;
+            // --- Monster Turn ---
+            if (monster.hp > 0) {
+                if (monster.stunCounter > 0) {
+                    System.out.println(monster.name + " is stunned and cannot act this turn!");
+                } else {
+                    useMonsterAction();
                 }
-                if (sidx < 0 || sidx >= player.skills.size()) continue;
-                Skill skill = player.skills.get(sidx);
-                int cost = skill.manaCost;
-                if (player.mp < cost) {
-                    System.out.println("Not enough MP!");
-                    continue;
-                }
-                int dmg = 40;
-                dmg = monster.applyPassive(dmg);
-                monster.hp -= dmg;
-                player.mp -= cost;
-                if (monster.hp < 0) monster.hp = 0;
-                System.out.println("You used " + skill.name + " and dealt " + dmg + " damage!");
-            } else if (act.equals("4")) {
-                System.out.println("You fled from battle! (Not allowed in tutorial)");
             }
-
-            if (monster.hp <= 0) break;
-            int goblinAtk = 10;
-            player.hp -= goblinAtk;
-            if (player.hp < 0) player.hp = 0;
-            System.out.println("You have been attack by a Goblin you lose 10 HP\n");
-            System.out.println("Player HP: " + player.hp + "/" + player.maxHp + " MP: " + player.mp + "/" + player.maxMp +
-                               " | Goblin HP: " + monster.hp + "/" + monster.maxHp + " MP: " + monster.mp + "/" + monster.maxMp);
         }
-        if (player.hp > 0) {
-            System.out.println("You have slain the Goblin!");
-            System.out.println("You gained " + monster.expReward + " Exp and " + monster.goldReward + " Gold!\n");
+        if (player.hp <= 0) {
+            System.out.println("You have been defeated!");
+            return false;
+        } else {
+            System.out.println("You defeated " + monster.name + "!");
+            System.out.println("You gained " + monster.expReward + " EXP and " + monster.goldReward + " Gold!");
+            player.gainExp(monster.expReward);
+            player.addGold(monster.goldReward);
+            return true;
+        }
+
+    }
+
+    private void attackMonster() {
+        int dmg = player.attack;
+        if (monster.slowCounter > 0) {
+            dmg += 2; // Optional: slow makes them take more
+        }
+        dmg = monster.applyPassive(dmg);
+        monster.hp -= dmg;
+        if (monster.hp < 0) {
+            monster.hp = 0;
+        }
+        System.out.println("You attacked and dealt " + dmg + " damage!");
+    }
+
+    private void usePlayerSkill() {
+        UI.printSkills(player.skills);
+        System.out.print("Choose a skill: ");
+        int idx;
+        try {
+            idx = Integer.parseInt(in.nextLine().trim()) - 1;
+        } catch (Exception e) {
+            System.out.println("Invalid input.");
+            return;
+        }
+        if (idx < 0 || idx >= player.skills.size()) {
+            System.out.println("Invalid skill choice.");
+            return;
+        }
+        Skill skill = player.skills.get(idx);
+        if (player.mp < skill.manaCost) {
+            System.out.println("Not enough MP!");
+            return;
+        }
+        player.mp -= skill.manaCost;
+
+        // By default, skill damage is player's attack * skill.multiplier
+        int dmg = (int) Math.round(player.attack * skill.multiplier);
+
+        if ("stun".equals(skill.effectType)) {
+            monster.stunCounter = skill.duration;
+            System.out.println(monster.name + " is stunned for " + skill.duration + " turn(s)!");
+        } else if ("poison".equals(skill.effectType)) {
+            monster.poisonCounter = skill.duration;
+            monster.poisonDamage = skill.effectValue;
+            System.out.println(monster.name + " is poisoned!");
+        } else if ("slow".equals(skill.effectType)) {
+            monster.slowCounter = skill.duration;
+            System.out.println(monster.name + " is slowed!");
+        } else if ("double".equals(skill.effectType)) {
+            // Double Shot: two hits, each at skill.multiplier
+            int shot1 = (int) Math.round(player.attack * skill.multiplier);
+            int shot2 = (int) Math.round(player.attack * skill.multiplier);
+            shot1 = monster.applyPassive(shot1);
+            shot2 = monster.applyPassive(shot2);
+            monster.hp -= (shot1 + shot2);
+            System.out.println("Double Shot! You hit for " + shot1 + " and " + shot2 + "!");
+            return;
+        }
+
+        dmg = monster.applyPassive(dmg);
+        monster.hp -= dmg;
+        if (monster.hp < 0) {
+            monster.hp = 0;
+        }
+        System.out.println("You used " + skill.name + " and dealt " + dmg + " damage!");
+    }
+
+    private void useMonsterAction() {
+        Skill skill = monster.chooseSkill();
+        if (skill == null) {
+            int dmg = monster.attack;
+            if (player.slowCounter > 0) {
+                dmg -= 2;
+            }
+            if (player.attackDownCounter > 0) {
+                dmg -= 5;
+            }
+            if (dmg < 0) {
+                dmg = 0;
+            }
+            player.hp -= dmg;
+            if (player.hp < 0) {
+                player.hp = 0;
+            }
+            System.out.println(monster.name + " attacks and deals " + dmg + " damage!");
+        } else {
+            monster.mp -= skill.manaCost;
+            if ("atkDown".equals(skill.effectType)) {
+                player.attackDownCounter = skill.duration;
+                System.out.println("Your attack is reduced for " + skill.duration + " turn(s)!");
+            } else if ("massive".equals(skill.effectType)) {
+                int dmg = monster.attack + skill.effectValue;
+                player.hp -= dmg;
+                if (player.hp < 0) {
+                    player.hp = 0;
+                }
+                System.out.println(monster.name + " uses " + skill.name + " and deals " + dmg + " massive damage!");
+            } else if ("extra".equals(skill.effectType)) {
+                int dmg = monster.attack + skill.effectValue;
+                player.hp -= dmg;
+                if (player.hp < 0) {
+                    player.hp = 0;
+                }
+                System.out.println(monster.name + " uses " + skill.name + " and deals " + dmg + " extra damage!");
+            } else {
+                int dmg = monster.attack + 5;
+                player.hp -= dmg;
+                if (player.hp < 0) {
+                    player.hp = 0;
+                }
+                System.out.println(monster.name + " uses " + skill.name + " and deals " + dmg + " damage!");
+            }
+        }
+    }
+
+    private void processPlayerStatusEffects() {
+        if (player.poisonCounter > 0) {
+            if (player.hp < 0) {
+                player.hp = 0;
+            }
+            player.hp -= player.poisonDamage;
+            System.out.println("You take " + player.poisonDamage + " poison damage!");
+            player.poisonCounter--;
+            if (player.hp <= 0) {
+                player.hp = 0;
+                System.out.println("You have been killed by poison!");
+            }
+            if (player.poisonCounter == 0) {
+                System.out.println("Poison wore off!");
+            }
+        }
+        if (player.attackDownCounter > 0) {
+            player.attackDownCounter--;
+            if (player.attackDownCounter == 0) {
+                System.out.println("Your attack is back to normal.");
+            }
+        }
+    }
+
+    private void processMonsterStatusEffects() {
+        if (monster.poisonCounter > 0) {
+            monster.hp -= monster.poisonDamage;
+            if (monster.hp < 0) {
+                monster.hp = 0;
+            }
+            System.out.println(monster.name + " takes " + monster.poisonDamage + " poison damage!");
+            monster.poisonCounter--;
+            if (monster.hp <= 0) {
+                monster.hp = 0;
+                System.out.println(monster.name + " has been killed by poison!");
+            }
+            if (monster.poisonCounter == 0) {
+                System.out.println(monster.name + "'s poison wore off!");
+            }
+        }
+        if (monster.attackDownCounter > 0) {
+            monster.attackDownCounter--;
+            if (monster.attackDownCounter == 0) {
+                System.out.println(monster.name + "'s attack is back to normal.");
+            }
         }
     }
 }
